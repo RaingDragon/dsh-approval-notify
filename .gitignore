@@ -1,0 +1,18 @@
+# Dependencies: this bundle is intentionally dependency-free, so a local
+# install never produces anything here.
+node_modules/
+
+# Local verification artifacts
+*.log
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Local secrets, should one ever be added
+.env*
+*.pem
+*.key

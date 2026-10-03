@@ -1,0 +1,36 @@
+{
+  "name": "@local/dsh-approval-notify",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Notifies you with a system notification whenever DSH waits for your confirmation or answer",
+  "license": "MIT",
+  "author": "RaingDragon <96966838+RaingDragon@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RaingDragon/dsh-approval-notify.git"
+  },
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./internal": "./internal.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "internal.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json"
+  ],
+  "meta": {
+    "title": "DSH Approval Notify",
+    "description": "Sends a system notification whenever DSH waits for your confirmation or answer"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

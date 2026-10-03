@@ -1,0 +1,29 @@
+name: tests
+
+# The suite needs no DSH runtime and no dependencies: it drives the Host half
+# against a recording context and treats the operating system as an input, so it
+# proves the same four platform branches on three real operating systems.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: node ${{ matrix.node-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Run unit and integration tests
+        run: node --test test/internal.test.mjs test/plugin.test.mjs

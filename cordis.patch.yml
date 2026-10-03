@@ -1,0 +1,26 @@
+- insert:
+    - id: dsh-approval-notify
+      name: '@local/dsh-approval-notify'
+      config:
+        # Master switch: false registers no listener at all.
+        enabled: true
+        # Notify when a Tool call needs your approval (the approval waterfall).
+        approvals: true
+        # Notify when DSH asks you a question and waits for the answer.
+        userQuestions: true
+        # Language of the notification text this plugin writes itself:
+        # auto (follow the machine's locale) | zh | en.
+        locale: auto
+        # true shows the notification without its sound (Windows and macOS).
+        silent: false
+        # Windows AppUserModelID used to raise the toast; the plugin retries the
+        # PowerShell identity and the host process identity when it raises nothing.
+        toastAppId: PowerShell
+        # App name shown by the Linux notify-send backend.
+        appName: DSH
+        # Identical requests closer than this are notified once.
+        dedupeMs: 1200
+        # Kill a notification process that has not exited after this long.
+        timeoutMs: 15000
+        # Send one test notification shortly after the plugin loads.
+        testOnLoad: false
