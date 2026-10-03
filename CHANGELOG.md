@@ -6,6 +6,13 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The test suite no longer depends on the machine it runs on: every assertion
+  that describes one platform now pins `process.platform` explicitly, so
+  `node --test` reaches the same result on Windows, macOS, and Linux. The CI
+  matrix previously failed on ubuntu and macOS while passing on Windows.
+
 ## [1.1.0] — 2026-10-03
 
 ### Added

@@ -16,6 +16,8 @@ node test/live-windows.mjs auto                           # Windows：真弹一�
 | `test/plugin.test.mjs` | 监听器注册与 `{ prepend: true, global: true }` 选项、`next()` 同步透传且 waterfall 返回值不变、按平台的 argv 与 stdio、去重、超时看门狗、失败只记日志不抛错、未知平台只注册不发送 |
 | `.github/workflows/test.yml` | 同一套测试在 ubuntu / windows / macos × node 20、22 上运行（矩阵与上面的命令一致） |
 
+**与操作系统无关**：每条依赖平台的断言都用 `withPlatform()` 把 `process.platform` 固定成目标系统，测试不会因为"跑在哪台机器上"而改变结论。已用 `--import` 注入的 platform shim 在 **linux / darwin / freebsd / aix** 四种模拟宿主下各跑一遍，连同原生 Windows 全部 **31/31 通过**。
+
 ## 2. 人工实测记录（Windows）
 
 | 项目 | 结果 |

@@ -6,8 +6,9 @@
  * `next()` pass-through, the per-platform argv, de-duplication, and that every
  * failure is logged instead of thrown — without needing a live DSH host.
  *
- * Platform-dependent tests stub `process.platform`, so the whole suite runs the
- * same way on Windows, macOS, and Linux.
+ * Every assertion that depends on the operating system pins it with
+ * `withPlatform()`, so the suite produces the same result on Windows, macOS,
+ * and Linux instead of silently testing whichever machine happens to run it.
  */
 
 import assert from 'node:assert/strict'
@@ -84,7 +85,7 @@ function makeContext(options = {}) {
 /** Let every already-scheduled microtask and macrotask of one delivery run. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5))
 
-/** Run `body` with `process.platform` reporting another operating system. */
+/** Run `body` with `process.platform` reporting one exact operating system. */
 async function withPlatform(platform, body) {
   const original = process.platform
   Object.defineProperty(process, 'platform', { value: platform, configurable: true })
@@ -123,62 +124,70 @@ test('both waterfalls get a prepended, global, pass-through listener', () => {
 })
 
 test('an approval request is passed through unchanged and raises one toast', async () => {
-  const { ctx, record, listeners } = makeContext()
-  apply(ctx, { locale: 'zh' })
-  const outcome = { marker: 'the real waterfall outcome' }
-  const returned = listeners.get('approval/request').listener(approvalRequest, () => outcome)
-  assert.equal(returned, outcome, 'the listener returns next() synchronously')
-  await settle()
-  assert.equal(record.spawns.length, 1)
-  const spec = record.spawns[0]
-  assert.deepEqual(spec.argv.slice(0, 4), [
-    'resolved:powershell.exe',
-    '-NoProfile',
-    '-NonInteractive',
-    '-EncodedCommand',
-  ])
-  assert.deepEqual(spec.stdio, {
-    stdin: 'ignore',
-    stdout: { maxBytes: 32 * 1024 },
-    stderr: { maxBytes: 32 * 1024 },
+  await withPlatform('win32', async () => {
+    const { ctx, record, listeners } = makeContext()
+    apply(ctx, { locale: 'zh' })
+    const outcome = { marker: 'the real waterfall outcome' }
+    const returned = listeners.get('approval/request').listener(approvalRequest, () => outcome)
+    assert.equal(returned, outcome, 'the listener returns next() synchronously')
+    await settle()
+    assert.equal(record.spawns.length, 1)
+    const spec = record.spawns[0]
+    assert.deepEqual(spec.argv.slice(0, 4), [
+      'resolved:powershell.exe',
+      '-NoProfile',
+      '-NonInteractive',
+      '-EncodedCommand',
+    ])
+    assert.deepEqual(spec.stdio, {
+      stdin: 'ignore',
+      stdout: { maxBytes: 32 * 1024 },
+      stderr: { maxBytes: 32 * 1024 },
+    })
+    const script = decodeCommand(spec)
+    assert.match(script, /CreateTextNode\('DSH 需要你的确认'\)/)
+    assert.match(script, /CreateTextNode\('工具 bash 请求授权：执行越权命令'\)/)
+    assert.equal(record.timerCreated, 1, 'a watchdog guards the notification process')
+    assert.equal(record.timerDisposed, 1, 'the watchdog is cleared once the process exits')
   })
-  const script = decodeCommand(spec)
-  assert.match(script, /CreateTextNode\('DSH 需要你的确认'\)/)
-  assert.match(script, /CreateTextNode\('工具 bash 请求授权：执行越权命令'\)/)
-  assert.equal(record.timerCreated, 1, 'a watchdog guards the notification process')
-  assert.equal(record.timerDisposed, 1, 'the watchdog is cleared once the process exits')
 })
 
 test('the same request inside the de-duplication window notifies once', async () => {
-  const { ctx, record, listeners } = makeContext()
-  apply(ctx, { dedupeMs: 60000 })
-  const listener = listeners.get('approval/request').listener
-  listener(approvalRequest, () => 'first')
-  listener({ ...approvalRequest }, () => 'second')
-  listener({ ...approvalRequest, callId: 'call-2' }, () => 'third')
-  await settle()
-  assert.equal(record.spawns.length, 2, 'the repeated call id is skipped, a new call id is not')
+  await withPlatform('win32', async () => {
+    const { ctx, record, listeners } = makeContext()
+    apply(ctx, { dedupeMs: 60000 })
+    const listener = listeners.get('approval/request').listener
+    listener(approvalRequest, () => 'first')
+    listener({ ...approvalRequest }, () => 'second')
+    listener({ ...approvalRequest, callId: 'call-2' }, () => 'third')
+    await settle()
+    assert.equal(record.spawns.length, 2, 'the repeated call id is skipped, a new call id is not')
+  })
 })
 
 test('a user question becomes its own notification', async () => {
-  const { ctx, record, listeners } = makeContext()
-  apply(ctx, { userQuestions: true, locale: 'zh' })
-  listeners.get('user-questions/request').listener({
-    questions: [{ id: 'q1', question: '选哪个模式？', header: '确认' }],
-  }, () => 'delegated')
-  await settle()
-  assert.equal(record.spawns.length, 1)
-  const script = decodeCommand(record.spawns[0])
-  assert.match(script, /CreateTextNode\('DSH 需要你的回答'\)/)
-  assert.match(script, /CreateTextNode\('确认：选哪个模式？'\)/)
+  await withPlatform('win32', async () => {
+    const { ctx, record, listeners } = makeContext()
+    apply(ctx, { userQuestions: true, locale: 'zh' })
+    listeners.get('user-questions/request').listener({
+      questions: [{ id: 'q1', question: '选哪个模式？', header: '确认' }],
+    }, () => 'delegated')
+    await settle()
+    assert.equal(record.spawns.length, 1)
+    const script = decodeCommand(record.spawns[0])
+    assert.match(script, /CreateTextNode\('DSH 需要你的回答'\)/)
+    assert.match(script, /CreateTextNode\('确认：选哪个模式？'\)/)
+  })
 })
 
 test('a request without a question raises nothing', async () => {
-  const { ctx, record, listeners } = makeContext()
-  apply(ctx, {})
-  listeners.get('user-questions/request').listener({ questions: [] }, () => 'delegated')
-  await settle()
-  assert.deepEqual(record.spawns, [])
+  await withPlatform('win32', async () => {
+    const { ctx, record, listeners } = makeContext()
+    apply(ctx, {})
+    listeners.get('user-questions/request').listener({ questions: [] }, () => 'delegated')
+    await settle()
+    assert.deepEqual(record.spawns, [])
+  })
 })
 
 test('config.disabled and the per-waterfall switches register nothing', () => {
@@ -193,36 +202,42 @@ test('config.disabled and the per-waterfall switches register nothing', () => {
 })
 
 test('a failing notification process is logged, never thrown', async () => {
-  const { ctx, record, listeners } = makeContext({ exitCode: 1, stderr: 'toast blew up' })
-  apply(ctx, {})
-  listeners.get('approval/request').listener(approvalRequest, () => 'ok')
-  await settle()
-  assert.ok(record.logs.some(([level, message]) => level === 'warn' && message.includes('toast blew up')))
+  await withPlatform('win32', async () => {
+    const { ctx, record, listeners } = makeContext({ exitCode: 1, stderr: 'toast blew up' })
+    apply(ctx, {})
+    listeners.get('approval/request').listener(approvalRequest, () => 'ok')
+    await settle()
+    assert.ok(record.logs.some(([level, message]) => level === 'warn' && message.includes('toast blew up')))
+  })
 })
 
 test('an unresolvable executable is logged, never thrown', async () => {
-  const { ctx, record, listeners } = makeContext()
-  record.resolveFailsFor = ['powershell.exe', `${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`, 'pwsh.exe']
-  apply(ctx, {})
-  listeners.get('approval/request').listener(approvalRequest, () => 'ok')
-  await settle()
-  assert.deepEqual(record.spawns, [])
-  assert.ok(record.logs.some(([level, message]) => level === 'warn' && message.includes('找不到可用的通知命令')))
+  await withPlatform('win32', async () => {
+    const { ctx, record, listeners } = makeContext()
+    record.resolveFailsFor = ['powershell.exe', `${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`, 'pwsh.exe']
+    apply(ctx, {})
+    listeners.get('approval/request').listener(approvalRequest, () => 'ok')
+    await settle()
+    assert.deepEqual(record.spawns, [])
+    assert.ok(record.logs.some(([level, message]) => level === 'warn' && message.includes('找不到可用的通知命令')))
+  })
 })
 
 test('an over-long reason is truncated in the notification body', async () => {
-  const { ctx, record, listeners } = makeContext()
-  apply(ctx, { locale: 'zh' })
-  listeners.get('approval/request').listener({
-    agent: { id: 'session-1' },
-    toolName: 'bash',
-    callId: 'call-long',
-    reason: 'x'.repeat(600),
-  }, () => 'ok')
-  await settle()
-  const script = decodeCommand(record.spawns[0])
-  assert.match(script, /…/)
-  assert.ok(!script.includes('x'.repeat(400)), 'the body is cut before the toast')
+  await withPlatform('win32', async () => {
+    const { ctx, record, listeners } = makeContext()
+    apply(ctx, { locale: 'zh' })
+    listeners.get('approval/request').listener({
+      agent: { id: 'session-1' },
+      toolName: 'bash',
+      callId: 'call-long',
+      reason: 'x'.repeat(600),
+    }, () => 'ok')
+    await settle()
+    const script = decodeCommand(record.spawns[0])
+    assert.match(script, /…/)
+    assert.ok(!script.includes('x'.repeat(400)), 'the body is cut before the toast')
+  })
 })
 
 test('macOS runs osascript with the AppleScript plan', async () => {
@@ -272,12 +287,14 @@ test('an unsupported platform warns twice (activation + first skip) and never sp
 })
 
 test('testOnLoad schedules one probe that names the loaded version', async () => {
-  const { ctx, record } = makeContext()
-  apply(ctx, { testOnLoad: true, locale: 'en' })
-  assert.equal(record.timers.length, 1)
-  assert.equal(record.timers[0].delay, 1500)
-  record.timers[0].callback()
-  await settle()
-  assert.equal(record.spawns.length, 1)
-  assert.match(decodeCommand(record.spawns[0]), /v1\.1\.0/)
+  await withPlatform('win32', async () => {
+    const { ctx, record } = makeContext()
+    apply(ctx, { testOnLoad: true, locale: 'en' })
+    assert.equal(record.timers.length, 1)
+    assert.equal(record.timers[0].delay, 1500)
+    record.timers[0].callback()
+    await settle()
+    assert.equal(record.spawns.length, 1)
+    assert.match(decodeCommand(record.spawns[0]), /v1\.1\.0/)
+  })
 })
